@@ -105,6 +105,7 @@ def build_cli_app() -> "Group":  # noqa: C901
             loop = asyncio.get_event_loop()
             for w in managed_workers:
                 loop.run_until_complete(w.stop())
+                console.print("Stopping workers outside run_saq_worker")
         console.print("[yellow]SAQ workers stopped.[/]")
 
     @background_worker_group.command(
@@ -190,7 +191,10 @@ def run_saq_worker(
     import asyncio
     import signal
 
+    from litestar.cli._utils import _format_is_enabled, console  # pyright: ignore
+
     def sigerm_sigint_map_handler(_signum: Any, _frame: Any) -> None:
+        console.print("Mapping SIGTERM to SIGINT")
         raise KeyboardInterrupt
 
     if map_sigterm_sigint:
@@ -211,4 +215,5 @@ def run_saq_worker(
         if worker.separate_process:
             loop.run_until_complete(loop.create_task(worker_start(worker)))
     except KeyboardInterrupt:
+        console.print("Stopping worker inside run_saq_worker")
         loop.run_until_complete(loop.create_task(worker.stop()))

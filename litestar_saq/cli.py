@@ -82,6 +82,7 @@ def build_cli_app() -> "Group":  # noqa: C901
                         args=(
                             worker,
                             app.logging_config,
+                            map_sigterm_sigint,
                         ),
                     )
                     p.start()

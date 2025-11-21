@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from click import Group
@@ -16,7 +16,7 @@ def build_cli_app() -> "Group":  # noqa: C901
     from typing import cast
 
     from click import IntRange, group, option
-    from litestar.cli._utils import LitestarGroup, console  # pyright: ignore
+    from litestar.cli._utils import LitestarGroup, console
 
     @group(cls=LitestarGroup, name="workers", no_args_is_help=True)
     def background_worker_group() -> None:
@@ -42,12 +42,19 @@ def build_cli_app() -> "Group":  # noqa: C901
         required=False,
         show_default=False,
     )
+    @option(
+        "--map-sigterm-sigint",
+        help="Map SIGTERM to SIGINT for workers",
+        is_flag=True,
+        default=False,
+    )
     @option("-v", "--verbose", help="Enable verbose logging.", is_flag=True, default=None, type=bool, required=False)
     @option("-d", "--debug", help="Enable debugging.", is_flag=True, default=None, type=bool, required=False)
     def run_worker(  # pyright: ignore[reportUnusedFunction]
         app: "Litestar",
         workers: int,
         queues: "Optional[tuple[str, ...]]",
+        map_sigterm_sigint: bool,
         verbose: "Optional[bool]",
         debug: "Optional[bool]",
     ) -> None:
@@ -82,7 +89,9 @@ def build_cli_app() -> "Group":  # noqa: C901
 
         if len(managed_workers) > 1:
             for j in range(len(managed_workers) - 1):
-                p = multiprocessing.Process(target=run_saq_worker, args=(managed_workers[j + 1], app.logging_config))
+                p = multiprocessing.Process(
+                    target=run_saq_worker, args=(managed_workers[j + 1], app.logging_config, map_sigterm_sigint)
+                )
                 p.start()
                 processes.append(p)
 
@@ -90,6 +99,7 @@ def build_cli_app() -> "Group":  # noqa: C901
             run_saq_worker(
                 worker=managed_workers[0],
                 logging_config=cast("BaseLoggingConfig", app.logging_config),
+                map_sigterm_sigint=map_sigterm_sigint,
             )
         except KeyboardInterrupt:
             loop = asyncio.get_event_loop()
@@ -173,9 +183,18 @@ def show_saq_info(app: "Litestar", workers: int, plugin: "SAQPlugin") -> None:  
     console.print(table)
 
 
-def run_saq_worker(worker: "Worker", logging_config: "Optional[BaseLoggingConfig]") -> None:
+def run_saq_worker(
+    worker: "Worker", logging_config: "Optional[BaseLoggingConfig]", map_sigterm_sigint: bool = False
+) -> None:
     """Run a worker."""
     import asyncio
+    import signal
+
+    def sigerm_sigint_map_handler(_signum: Any, _frame: Any) -> None:
+        raise KeyboardInterrupt
+
+    if map_sigterm_sigint:
+        _ = signal.signal(signal.SIGTERM, sigerm_sigint_map_handler)
 
     loop = asyncio.get_event_loop()
     if logging_config is not None:

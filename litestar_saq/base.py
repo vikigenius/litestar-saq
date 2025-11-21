@@ -59,6 +59,7 @@ class Worker(SaqWorker):
         dequeue_timeout: float = 0,
         burst: bool = False,
         max_burst_jobs: "Optional[int]" = None,
+        shutdown_grace_period_s: "Optional[int]" = None,
         metadata: "Optional[JsonDict]" = None,
         separate_process: bool = True,
         multiprocessing_mode: Literal["multiprocessing", "threading"] = "multiprocessing",
@@ -80,6 +81,7 @@ class Worker(SaqWorker):
             dequeue_timeout=dequeue_timeout,
             burst=burst,
             max_burst_jobs=max_burst_jobs,
+            shutdown_grace_period_s=shutdown_grace_period_s,
             metadata=metadata,
         )
 
